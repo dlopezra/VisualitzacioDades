@@ -1,0 +1,201 @@
+---
+---
+title: "PAC2: Visualització de dades"
+author: "Daniel López Ramirez"
+#date: "`r format(Sys.Date(),"%e de %B, %Y")`"
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(kableExtra)
+library(pROC)
+#library(nortest)
+library(ggplot2)
+library(plyr)
+#library(dplyr)
+library(DescTools)
+library(missForest)
+library(corrplot)
+library(ggthemes)
+library(shiny)
+set.seed(12345)
+```
+
+# Càrrega de dades
+
+Primer de tot carreguem les dades dels dos fitxers que hem descarregat de PA-X, i revisem les seves variables:
+
+```{r peaceagr}
+peacedata <- read.csv("pax_data_1273_agreements_14-04-20.csv",header=TRUE, sep=",", na.strings="NA", 
+                          dec=".", strip.white=TRUE,quote = "\"")
+peacecorp <- read.csv("pax_corpus_1273_agreements_14-04-20.csv",header=TRUE, sep=",", na.strings="NA", 
+                          dec=".", strip.white=TRUE,quote = "\"")
+
+```
+
+```{r echo=FALSE}
+#En alguns casos ha carregat malament el CSV i les primeres columnes contenen errors 
+names(peacedata)[names(peacedata) == 'ï..Con'] <- 'Con'
+names(peacecorp)[names(peacecorp) == 'ï..AgreementId'] <- 'AgreementId'
+```
+
+
+Com podem observar, podem realitzar el merge dels dos **data frames** mitjançant les variables que contenen **l'AgreementId** i eliminar les variables que estàn duplicades entre els dos **data frames**:
+
+```{r}
+peaceagr <- merge(peacedata,peacecorp, by.x="AgtId",by.y="AgreementId")
+peaceagr <- subset(peaceagr, select = -c(Name, Region, Country, Peace.Process, Peace.Process.Name, Signed.Date, Agreement.Conflict.Level,Agtp,Agreement.Status,Conflict.Nature,Stage.y))
+```
+
+Un cop hem realitzat el primer procés de neteja, hem de d'analitzar els tipus de dades, i si tenim variables que no contenen informació:
+
+```{r}
+resdata <- sapply(peaceagr,class) 
+kable(data.frame(variables=names(resdata),clase=as.vector(resdata)),caption = "Assignació de classe d'objecte R a cada variable")
+
+colSums(is.na(peaceagr))
+```
+
+Com es pot observar, hi ha variables que contenen valors nulls. Si estudiem aquestes variables, veiem que les dues primeres **Loc1CWNO** i **Loc2GWNO**, estan relacionades amb el pais del conflicte però amb un codi diferent. Per tant, les podem eliminar, ja que és informació redundant que a més no està del tot informada.
+Les tres següents variables, **UcdpCon**, **UcdpAgr** i **PamAgr** estan relacionades amb un nou programa per a identificar els conflictes, que està en funcionament des del 2017 o bé pertanyen a un altre programa, i per tant, els conflictes anteriors no tenen aquesta dada.
+L'ultima variable que ens trobem sense dades és **CowWar**, que relaciona el conflicte amb una guerra, però pot ser que la guerra no compleixi amb el criteri necessari de morts, i per tant no estigui informat el camp. Per tant, podem esborrar el camp.
+
+```{r}
+peaceagr <- subset(peaceagr, select = -c(Loc1GWNO, Loc2GWNO, UcdpCon,UcdpAgr,PamAgr,CowWar))
+```
+
+Un cop hem eliminat les variables amb valors nuls, volem revisar els diferents valors que prenen les metadades: 
+
+
+```{r echo=FALSE,results='asis'}
+
+Analisi_peaceagr <- subset(peaceagr, select = c(GCh,GDis,GAge,GMig,GRa,GRe,GInd,GOth,GRef,GSoc,GeWom, GeMe, GeLgbti, GeFa,StDef, StGen, StCon, StSd, StRef, StSym, StInd, StUni, StBor, StXbor, Pol, PolGen, PolNewInd, PolNewTemp, ConRen, Cons, Ele, ElecComm, PolPar, PolParTrans, PolParOth, Civso, Tral, Pubad,Polps,Terps,EpsRes,Mps,HrGen, EqGen, HrDem, Prot, ProtCiv, ProtGrp, ProtLgl, ProtOth, HrFra, HrfSp, HrfBor, HrfTinc, HrfOth, HrCp, CprLife, CprTort, CprEq, CprSlav, CprLib, CprDet, CprFmov, CprFspe, CprFass, CprTria, CprPriv, CprVote, CprReli, CprOth, HrSec, SerProp, SerWork, SerHeal, SerEdu, SerStdl, SerShel, SerSs, SerCult, SerOth, HrNi, HrNiMe, HrNiNe, HrNiOth, HrIi, HrIiMon, HrIiBod, HrIiOth, HrMob, HrDet, Med, MedGov, MedSubs, MedLog, MedOth, HrCit, CitGen, CitRights, CitDef, CitOth,JusCr, JusCrSp, JusCrSys, JusCrPow, JusEm, JusJu, JusPri, JusTra, Dev, DevSoc, DevHum, DevInfra, NEC, NatRes, IntFu, Bus, Tax, TaxPo, TaxRef, TaxOth, Ban, CenBan, BanPers, BanInt, BanXb, LaRef, LaRefRet, LaRefOth, LaNom, LaCH, LaCHTa, LaCHIt, LaCHPro, LaCHOth, LaEn, Wat,SsrGua, Ce, CeProv, CeGen, SsrPol, SsrArm, SsrDdr, DdrDemil, DdrProg, SsrInt, SsrPsf, SsrFf, Cor, SsrCrOcr, SsrDrugs, Terr,TjGen, TjAm, TjAmPro, TjSan, TjPower, TjAmBan, TjCou, TjJaNc, TjJaIc, TjMech, TjPrire, TjVet, TjVic, TjMis, TjRep, TjRSym, TjRMa, TjNR, ImUN, ImOth, ImRef, ImPK, ImE, ImSrc))
+
+Taules_analisi <- lapply(Analisi_peaceagr,count)
+
+for(i in seq_along(Taules_analisi)) {
+  print(
+      kable(Taules_analisi[[i]], format = "html", caption = names(Taules_analisi)[i], longtable = TRUE) %>%
+          kable_styling(font_size = 9, full_width = FALSE)
+  )
+  cat("\n")
+}
+
+```
+
+
+En aquesta primera revisió de les dades, i observant que la informació que ens poden proporcionar les metadades més genèriques, ja ens permeten obtenir molta informació sobre els diversos tractats de pau, obviarem les dades proporcionades per les subcategories en la part d’agrupacions de persones i amb el repartiment de poder; per exemple de **GRef**, ens quedarem només amb **GRef** i descartarem **GRefRhet, GRefSubs i GRefOth**.
+
+```{r}
+newpeaceagr <- subset(peaceagr, select = c(AgtId, Con, Contp, PP, PPName, Reg, Agt, Dat, Status, Lgt, N_characters, Stage.x, StageSub, Part, ThrdPart, OthAgr, Loc1ISO,Loc2ISO,Agreement.Text,GCh,GDis,GAge,GMig,GRa,GRe,GInd,GOth,GRef,GSoc,GeWom, GeMe, GeLgbti, GeFa,StDef, StGen, StCon, StSd, StRef, StSym, StInd, StUni, StBor, StXbor, Pol, PolGen, PolNewInd, PolNewTemp, ConRen, Cons, Ele, ElecComm, PolPar, PolParTrans, PolParOth, Civso, Tral, Pubad,Polps,Terps,EpsRes,Mps,HrGen, EqGen, HrDem, Prot, ProtCiv, ProtGrp, ProtLgl, ProtOth, HrFra, HrfSp, HrfBor, HrfTinc, HrfOth, HrCp, CprLife, CprTort, CprEq, CprSlav, CprLib, CprDet, CprFmov, CprFspe, CprFass, CprTria, CprPriv, CprVote, CprReli, CprOth, HrSec, SerProp, SerWork, SerHeal, SerEdu, SerStdl, SerShel, SerSs, SerCult, SerOth, HrNi, HrNiMe, HrNiNe, HrNiOth, HrIi, HrIiMon, HrIiBod, HrIiOth, HrMob, HrDet, Med, MedGov, MedSubs, MedLog, MedOth, HrCit, CitGen, CitRights, CitDef, CitOth,JusCr, JusCrSp, JusCrSys, JusCrPow, JusEm, JusJu, JusPri, JusTra, Dev, DevSoc, DevHum, DevInfra, NEC, NatRes, IntFu, Bus, Tax, TaxPo, TaxRef, TaxOth, Ban, CenBan, BanPers, BanInt, BanXb, LaRef, LaRefRet, LaRefOth, LaNom, LaCH, LaCHTa, LaCHIt, LaCHPro, LaCHOth, LaEn, Wat,SsrGua, Ce, CeProv, CeGen, SsrPol, SsrArm, SsrDdr, DdrDemil, DdrProg, SsrInt, SsrPsf, SsrFf, Cor, SsrCrOcr, SsrDrugs, Terr,TjGen, TjAm, TjAmPro, TjSan, TjPower, TjAmBan, TjCou, TjJaNc, TjJaIc, TjMech, TjPrire, TjVet, TjVic, TjMis, TjRep, TjRSym, TjRMa, TjNR, ImUN, ImOth, ImRef, ImPK, ImE, ImSrc ))
+```
+
+Finalment, després de la revisió i el processament de les dades ens hem quedat amb una mostra de 1273 observacions i 195 variables.
+Amb la inspecció visual també he trobat diverses variables que poden tenir un pes important dintre de la mostra com: **GRef, GeWom, StDef, StGen, Cons, Ele, PolPar, SsrGua, CE, SsrPol, SsrArm, SsrDdr, SsrPsf, ImE**. Totes aquestes variables tenen entre a partir d'un 30% de valors diferents de 0.
+
+Observant les metadades, sembla que a la mostra hi pot haver correlació entre les variables **GRa** i **GRe**, ja que els seus valors coincideixen força. Per tant, crearem una nova variable que contindrà aquesta relació entre les dues variables, on assignarem 3 valors tals com 0 si no coincideixen, 1 si una o altre té un valor superior a 0 i 2 si el valor de les dues coincideixen:
+
+```{r}
+peacetest <- subset(newpeaceagr, select= c(GRa, GRe))
+
+peacetest$coincideix <- ifelse(peacetest$GRa==0 & peacetest$GRe==0,0,1)
+
+peacetest$coincideix <- ifelse(peacetest$GRa>0 & peacetest$GRe>0,2,peacetest$coincideix)
+
+peacetest$coincideix <- as.numeric(peacetest$coincideix)
+
+newpeaceagr$RelGRaGRe <- peacetest$coincideix
+
+```
+
+També podem realitzar matrius de correlació entre les diverses metadades per a poder veure si hi ha alguna possible dependència entre les variables:
+
+```{r}
+#Matriu de correlació d'agrupacions de persones, sexe i orientació
+round(cor(newpeaceagr[,c(20:31)]),2)
+#Matriu de correlació d'agrupacions de persones i la definició d'estat
+round(cor(newpeaceagr[,c(20:41)]),2)
+#Matriu de correlació d'agrupacions de persones i la governança 
+round(cor(newpeaceagr[,c(20:31,42:55)]),2)
+#Matriu de correlació d'agrupacions de persones i el repartiment de poder 
+round(cor(newpeaceagr[,c(20:31,56:59)]),2)
+#Matriu de correlació d'agrupacions de persones i la reforma del sector judicial 
+round(cor(newpeaceagr[,c(20:31,118:125)]),2)
+#Matriu de correlació d'agrupacions de persones i la reconstrucció socio-econòmica, les reformes agràries, l’aigua, medi ambient
+round(cor(newpeaceagr[,c(20:31,126:153)]),2)
+#Matriu de correlació d'agrupacions de persones i el sector de la seguretat 
+round(cor(newpeaceagr[,c(20:31,154:169)]),2)
+#Matriu de correlació d'agrupacions de persones i la transició de la justicia
+round(cor(newpeaceagr[,c(20:31,170:187)]),2)
+#Matriu de correlació d'agrupacions de persones i la implementació de l'acord de pau
+round(cor(newpeaceagr[,c(20:31,188:194)]),2)
+```
+
+Per simplificar les matrius de correlació, i poder extreure les possibles correlacions, filtrem les matrius amb valors més grans que 0.6:
+
+```{r echo=FALSE}
+library(dplyr)
+library(corrr)
+peacecorr<-newpeaceagr[,c(20:194)] %>% 
+  correlate() %>%    
+  shave() %>% 
+  stretch(na.rm = TRUE) %>% 
+  filter(between(r, .6, .99))
+kable(peacecorr)
+```
+
+
+En aquest cas, podem observar la possible interelació entre les diverses metadades de la mostra. Les variables que haviem observat visualment que semblaven que tenien una correlació, **GRa** i **GRe** apaeixen en aquest llistat, igual que d'altres variables.
+
+Revisant les dades de les variables relacionades amb el pais (*Con*, *Loc1ISO* i *Loc2ISO*), s'ha observat que, per una banda, **Con** conté també països relacionats amb els conflictes (com per exemple si el pais pertanyia a l'antiga Iugoslàvia) i **Loc1ISO** i **Loc2ISO** contenen els codis ISO dels països, però no el nom. Per tant, utilitzant la llibreria *countrycode* de R, afegirem dues variables més amb el nom del país segons les variables abans esmentades:
+
+```{r}
+library(countrycode)
+newpeaceagr$Country1 <- countrycode(newpeaceagr$Loc1ISO,origin="iso3c",destination="country.name")
+newpeaceagr$Country2 <- countrycode(newpeaceagr$Loc2ISO,origin="iso3c",destination="country.name")
+
+```
+
+
+Seleccionem les variables i apliquem les transformacions que hem comentat a la **Pac3**.
+
+```{r}
+#
+lastpeaceagr <- subset(newpeaceagr, select = c(Contp, PPName, Reg, Agt, Dat, Status, Stage.x, Part, ThrdPart, Country1, Country2, RelGRaGRe, Agreement.Text,GCh,GDis,GAge,GMig,GRa,GRe,GInd,GOth,GRef,GeWom, GeMe, GeLgbti, GeFa,StDef, StGen, Cons, Ele, PolPar, SsrGua, Ce, SsrPol, SsrArm, SsrDdr,  SsrPsf ))
+# Canviem el nom de la variable stage
+names(lastpeaceagr)[names(lastpeaceagr) == "Stage.x"] <- "Stage"
+# Transformem les metadades al tipus d'atribut correcte:
+# Tipus Text
+str_col_names <- c("PPName","Reg","Agt","Agreement.Text")
+lastpeaceagr[str_col_names] <- lapply(lastpeaceagr[str_col_names] , as.character)
+#Convertim els atributs de text a categòric numèric
+lastpeaceagr$Part <- ifelse(is.null(as.character(lastpeaceagr$Part)) | lastpeaceagr$Part=="",0,1)
+lastpeaceagr$ThrdPart <- ifelse(is.null(as.character(lastpeaceagr$ThrdPart)) | lastpeaceagr$ThrdPart=="",0,1)
+#Convertim els factos a numerics
+num_col_names <- c("Contp","Status","Stage")
+lastpeaceagr[num_col_names] <- lapply(lastpeaceagr[num_col_names] , as.numeric)
+#Convertim la data
+lastpeaceagr$Dat <- as.Date(lastpeaceagr$Dat)
+#Convertim els valors a binari
+lastpeaceagr[,c(14:37)] <- lapply(lastpeaceagr[,14:37],function(x) ifelse(x>0,1,0))
+#lastpeaceagr[,c(13:37)] <- lapply(lastpeaceagr[,13:37],as.factor)
+```
+
+
+Finalment, anem a preparar les variables per a generar el fitxer de sortida resultant.
+
+```{r}
+#Guardem el dataframe resultant en un fitxer
+write.csv(lastpeaceagr, file = 'pax_alldata_1273.csv', row.names = FALSE)
+```
+
+
+

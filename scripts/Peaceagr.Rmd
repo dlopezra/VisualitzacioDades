@@ -1,6 +1,6 @@
 ---
 ---
-title: "PAC2: Visualització de dades"
+title: "PAC4: Visualització de dades"
 author: "Daniel López Ramirez"
 #date: "`r format(Sys.Date(),"%e de %B, %Y")`"
 output:

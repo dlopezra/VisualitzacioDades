@@ -20,7 +20,7 @@ En la carpeta **scripts** trobarem l'script realitzat amb R per a processar les 
 En la carpeta **visualizations** trobarem la visualització realitzada amb Tableau Desktop:
 * ** ** - 
 
-En la carpeta **documents** trobarem els documents generats de cada part de la pràcica:
+En la carpeta **documents** trobarem els documents generats de cada part de la pràctica:
 * **daniellopez_pac2.pdf** - Document relacionat amb la pac2
 * **daniellopez_pac3.pdf** - Document relacionat amb la pac3
 * **daniellopez_pac4.pdf** - Document relacionat amb la pac4

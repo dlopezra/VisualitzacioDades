@@ -5,7 +5,7 @@ Aquesta visualització pretén explicar l’afectació dels diversos indicadors,
 
 ## Visualització
 
-La visualització la podrem trobar al repositori de [Tableau Public](https://public.tableau.com/profile/dlopezra).
+La visualització la podrem trobar al repositori de [Tableau Public](https://public.tableau.com/profile/daniel.lopez6830#!/vizhome/PAC4_15917263909770/CaracteristiquesAcords).
 
 ## Fitxers
 

@@ -18,7 +18,9 @@ En la carpeta **scripts** trobarem l'script realitzat amb R per a processar les 
 * **Peaceagr.Rmd** - fitxer que conté les instruccions en R per a poder generar el fitxer pax_alldata_1273.csv.
 
 En la carpeta **visualizations** trobarem la visualització realitzada amb Tableau Desktop:
-* ** ** - 
+* **PAC4.twb** - fitxer de tableau desktop amb les visualitzacions.
+* **Característiques més influents en els acords de pau intraestatals.twbx** - llibre de treball empaquetat de tableau desktop.
+* **pax_alldata_1273.hyper** - dades processades de tableau desktop per a pujar-ho a tableau public.
 
 En la carpeta **documents** trobarem els documents generats de cada part de la pràctica:
 * **daniellopez_pac2.pdf** - Document relacionat amb la pac2
